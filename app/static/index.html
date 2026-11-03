@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CalSync</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="logo">⇄</span> CalSync</div>
+  <div id="whoami" class="whoami"></div>
+</header>
+
+<main id="app">
+  <section id="login" class="card hidden">
+    <h1>Mirror your calendars.</h1>
+    <p class="lead">Connect Google Calendar and Microsoft 365, pick a calendar on each side, and CalSync keeps them
+      in step; changes flow within seconds using push notifications, with a scheduled safety net.</p>
+    <p>Sign in with whichever account you want as your <strong>primary</strong> identity. You can attach
+      more accounts on either side afterwards.</p>
+    <div class="row">
+      <a class="btn google" href="/auth/google/start">Sign in with Google</a>
+      <a class="btn microsoft" href="/auth/microsoft/start">Sign in with Microsoft</a>
+    </div>
+    <p id="login-note" class="muted"></p>
+  </section>
+
+  <section id="dash" class="hidden">
+    <div class="card">
+      <div class="card-head">
+        <h2>Accounts</h2>
+        <div class="row">
+          <a class="btn small google" href="/auth/google/start">+ Google</a>
+          <a class="btn small microsoft" href="/auth/microsoft/start">+ Microsoft</a>
+        </div>
+      </div>
+      <ul id="accounts" class="list"></ul>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>New sync</h2></div>
+      <form id="link-form" class="grid">
+        <label>Source account
+          <select id="src-acct" required></select></label>
+        <label>Source calendar
+          <select id="src-cal" required></select></label>
+        <label>Target account
+          <select id="tgt-acct" required></select></label>
+        <label>Target calendar
+          <select id="tgt-cal" required></select></label>
+        <label>What to copy
+          <select id="mode">
+            <option value="full">Full details (title, notes, location)</option>
+            <option value="busy">Busy blocks only (no details)</option>
+          </select></label>
+        <label>Label <input id="label" placeholder="optional, e.g. Work → Personal"></label>
+        <label class="check"><input type="checkbox" id="two-way" checked> Two-way (also mirror target → source)</label>
+        <div class="actions"><button class="btn primary" type="submit">Create sync</button> <span id="form-msg" class="muted"></span></div>
+      </form>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>Syncs</h2><button id="sync-all" class="btn small">Sync all now</button></div>
+      <div id="links" class="links"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>Errors</h2>
+        <div class="row">
+          <button id="refresh-errors" class="btn small">Refresh</button>
+          <button id="clear-errors" class="btn small danger">Clear</button>
+        </div>
+      </div>
+      <div id="errors" class="errors"></div>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <span>CalSync is open source (MIT). Runs on Cloud Run + Cloud Storage.</span>
+  <span id="window" class="muted"></span>
+</footer>
+<script src="/static/app.js"></script>
+</body>
+</html>

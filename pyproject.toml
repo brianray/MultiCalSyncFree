@@ -1,0 +1,20 @@
+[project]
+name = "calsync"
+version = "0.1.0"
+description = "Two-way calendar mirroring between Google Calendar and Microsoft 365, on Cloud Run with Cloud Storage."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+ignore = ["E501"]
