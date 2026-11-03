@@ -2,7 +2,7 @@
 <img width="2400" height="1260" alt="MultiCalSyncFree-linkedin" src="https://github.com/user-attachments/assets/dc65bd48-7d21-40b7-b098-d585166dcf0d" />
 
 
-Two-way calendar mirroring between **Google Calendar** and **Microsoft 365 / Outlook**, running on Google Cloud with no servers to manage and no database to pay for.
+Two-way (or n-way) calendar mirroring between **Google Calendar** and **Microsoft 365 / Outlook**, running on Google Cloud with no servers to manage and no database to pay for.
 
 <img width="760" height="820" alt="Screenshot 2026-11-02 at 10 00 46 PM" src="https://github.com/user-attachments/assets/1b98433a-40b2-4a32-9f06-154d3679eb58" />
 
