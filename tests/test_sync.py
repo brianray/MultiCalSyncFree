@@ -136,9 +136,11 @@ def test_two_way_delete_propagates_once(ctx, providers, two_way):
     g, m = providers["google"], providers["microsoft"]
     a = g.add("primary", title="A", **timed())
     engine = SyncEngine(ctx)
-    engine.sync_link(g2m); engine.sync_link(m2g)
+    engine.sync_link(g2m)
+    engine.sync_link(m2g)
     g.remove("primary", a.id)
-    engine.sync_link(g2m); engine.sync_link(m2g)
+    engine.sync_link(g2m)
+    engine.sync_link(m2g)
     assert g.events["primary"] == {} and m.events["primary"] == {}
 
 

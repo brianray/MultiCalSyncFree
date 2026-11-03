@@ -220,7 +220,7 @@ class SyncEngine:
         w_start, w_end = window(self.settings.window_past_days, self.settings.window_future_days)
 
         tgt_events, _ = target.list_changes(link.target_calendar_id, None, w_start, w_end)
-        src_events, cursor = source.list_changes(link.source_calendar_id, None, w_start, w_end)
+        src_events, _ = source.list_changes(link.source_calendar_id, None, w_start, w_end)
         live = {e.id for e in src_events if not e.deleted and not e.is_mirror and e.start}
 
         mapping: dict[str, str] = {}

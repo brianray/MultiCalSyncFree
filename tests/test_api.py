@@ -99,10 +99,14 @@ def test_oauth_state_cookies_are_per_provider(client, ctx, monkeypatch):
     ctx.settings.ms_client_id = "mid"
 
     class FakeOAuth:
-        def __init__(self, name): self.name, self.client_id = name, "x"
-        def auth_url(self, state): return f"https://idp/{self.name}?state={state}"
-        def exchange_code(self, code): return OAuthTokens(access_token="a", refresh_token="r", expires_in=100)
-        def user_info(self): return {"email": f"{self.name}@example.com", "name": self.name}
+        def __init__(self, name):
+            self.name, self.client_id = name, "x"
+        def auth_url(self, state):
+            return f"https://idp/{self.name}?state={state}"
+        def exchange_code(self, code):
+            return OAuthTokens(access_token="a", refresh_token="r", expires_in=100)
+        def user_info(self):
+            return {"email": f"{self.name}@example.com", "name": self.name}
 
     monkeypatch.setattr(ctx, "new_provider", lambda name, tokens=None, on_tokens=None: FakeOAuth(name))
     g_state = client.get("/auth/google/start", follow_redirects=False).headers["location"].split("state=")[1]
@@ -117,9 +121,12 @@ def test_oauth_prefetch_does_not_break_login(client, ctx, monkeypatch):
 
     class FakeOAuth:
         client_id = "x"
-        def auth_url(self, state): return f"https://idp?state={state}"
-        def exchange_code(self, code): return OAuthTokens(access_token="a", refresh_token="r", expires_in=100)
-        def user_info(self): return {"email": "me@example.com", "name": ""}
+        def auth_url(self, state):
+            return f"https://idp?state={state}"
+        def exchange_code(self, code):
+            return OAuthTokens(access_token="a", refresh_token="r", expires_in=100)
+        def user_info(self):
+            return {"email": "me@example.com", "name": ""}
 
     monkeypatch.setattr(ctx, "new_provider", lambda *a, **k: FakeOAuth())
     first = client.get("/auth/google/start", follow_redirects=False).headers["location"].split("state=")[1]
@@ -137,9 +144,12 @@ def test_allow_list_blocks_first_login(client, ctx, monkeypatch):
 
     class FakeOAuth:
         client_id = "x"
-        def auth_url(self, state): return f"https://idp?state={state}"
-        def exchange_code(self, code): return OAuthTokens(access_token="a", expires_in=10)
-        def user_info(self): return {"email": "intruder@evil.com", "name": ""}
+        def auth_url(self, state):
+            return f"https://idp?state={state}"
+        def exchange_code(self, code):
+            return OAuthTokens(access_token="a", expires_in=10)
+        def user_info(self):
+            return {"email": "intruder@evil.com", "name": ""}
 
     monkeypatch.setattr(ctx, "new_provider", lambda *a, **k: FakeOAuth())
     r = client.get("/auth/google/start", follow_redirects=False)
@@ -185,7 +195,7 @@ def test_create_link_validation(authed, accounts):
 
 def test_link_lifecycle(authed, ctx, providers, accounts, link):
     g, m = providers["google"], providers["microsoft"]
-    a = g.add("primary", title="A", **timed())
+    g.add("primary", title="A", **timed())
     r = authed.post(f"/api/links/{link.id}/sync")
     assert r.json()["result"]["created"] == 1
     r = authed.patch(f"/api/links/{link.id}", json={"enabled": False, "label": "Paused one"})
