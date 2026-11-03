@@ -1,5 +1,6 @@
 # MultiCalSyncFree
 <img width="2400" height="1260" alt="MultiCalSyncFree-linkedin" src="https://github.com/user-attachments/assets/dc65bd48-7d21-40b7-b098-d585166dcf0d" />
+
 [![Tests](https://github.com/brianray/MultiCalSyncFree/actions/workflows/test.yml/badge.svg)](https://github.com/brianray/MultiCalSyncFree/actions/workflows/test.yml)
 [![Deploy](https://github.com/brianray/MultiCalSyncFree/actions/workflows/deploy.yml/badge.svg)](https://github.com/brianray/MultiCalSyncFree/actions/workflows/deploy.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
