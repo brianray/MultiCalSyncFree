@@ -299,14 +299,19 @@ async def api_create_link(request: Request) -> Response:
         )
         ctx.repo.save_link(link)
         created.append(link)
-        try:
-            SubscriptionManager(ctx).ensure(s_acct, s_cal)
-        except Exception as exc:
-            # Not fatal: the cron tick keeps things moving and will retry the webhook.
-            ctx.errors.record("subscription", f"Webhook setup failed for {s_acct.email}: {exc}",
-                              user_id=user.id, link_id=link.id, exc=exc)
 
-    def initial_sync() -> None:
+    def after_response() -> None:
+        # Webhook subscriptions are created here, after the response has gone
+        # out, so this instance is free to answer the provider's validation
+        # ping (Graph allows 10 seconds). Failures are logged; the cron tick retries.
+        subs = SubscriptionManager(ctx)
+        for lk in created:
+            src_acct = ctx.repo.get_account(lk.source_account_id)
+            try:
+                subs.ensure(src_acct, lk.source_calendar_id)
+            except Exception as exc:
+                ctx.errors.record("subscription", f"Webhook setup failed for {src_acct.email}: {exc}",
+                                  user_id=user.id, link_id=lk.id, exc=exc)
         engine = SyncEngine(ctx)
         for lk in created:
             engine.sync_link(lk, full=True)
@@ -314,7 +319,7 @@ async def api_create_link(request: Request) -> Response:
     return JSONResponse(
         {"links": [_link_view(lk, ctx.repo) for lk in created]},
         status_code=201,
-        background=BackgroundTask(initial_sync) if created else None,
+        background=BackgroundTask(after_response) if created else None,
     )
 
 

@@ -242,6 +242,22 @@ def test_microsoft_subscribe_falls_back_to_me_events_for_default_calendar():
     assert "Resource not supported" in str(ei.value)
 
 
+def test_microsoft_subscribe_retries_on_validation_timeout(monkeypatch):
+    import app.providers.microsoft as ms
+    monkeypatch.setattr(ms.time, "sleep", lambda s: None)
+    attempts = []
+
+    def handler(req):
+        attempts.append(1)
+        if len(attempts) == 1:
+            return httpx.Response(400, json={"error": {"code": "ValidationError", "message": "Subscription validation request timed out."}})
+        return httpx.Response(201, json={"id": "sub3", "expirationDateTime": "2026-11-05T00:00:00.0000000Z"})
+
+    p = MicrosoftProvider("cid", "sec", "http://cb", tokens=fresh_tokens(), client=mock_client(handler))
+    sid, _ = p.subscribe("cal", "http://cb/webhooks/microsoft", "chan", "sec")
+    assert sid == "sub3" and len(attempts) == 2
+
+
 def test_microsoft_auth_url_uses_tenant():
     p = MicrosoftProvider("cid", "sec", "http://cb", tenant="contoso.com")
     url = p.auth_url("st")

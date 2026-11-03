@@ -56,7 +56,7 @@ jobs:
             --allow-unauthenticated \
             --service-account "${{ vars.GCP_RUNTIME_SA }}" \
             --no-cpu-throttling \
-            --min-instances 0 --max-instances 3 --concurrency 20 \
+            --min-instances ${{ vars.MIN_INSTANCES || '1' }} --max-instances 3 --concurrency 20 \
             --set-env-vars "^|^BASE_URL=${{ vars.BASE_URL }}|STORAGE_BACKEND=gcs|GCS_BUCKET=${{ vars.GCS_BUCKET }}|GOOGLE_CLIENT_ID=${{ vars.GOOGLE_CLIENT_ID }}|MS_CLIENT_ID=${{ vars.MS_CLIENT_ID }}|MS_TENANT=${{ vars.MS_TENANT || 'common' }}|ALLOWED_EMAILS=${{ vars.ALLOWED_EMAILS }}|WINDOW_PAST_DAYS=${{ vars.WINDOW_PAST_DAYS || '30' }}|WINDOW_FUTURE_DAYS=${{ vars.WINDOW_FUTURE_DAYS || '365' }}" \
             --set-secrets "SESSION_SECRET=calsync-session-secret:latest,TOKEN_ENCRYPTION_KEY=calsync-token-key:latest,CRON_SECRET=calsync-cron-secret:latest,GOOGLE_CLIENT_SECRET=calsync-google-client-secret:latest,MS_CLIENT_SECRET=calsync-ms-client-secret:latest" \
             --quiet
@@ -65,9 +65,13 @@ jobs:
         # Cloud Run reports one of the service's hostnames; the app redirects every
         # hostname to BASE_URL, so probe BASE_URL and follow redirects.
         run: |
-          URL="${{ vars.BASE_URL }}"
+          # Normalise BASE_URL (strip whitespace and any trailing slash) and show exactly what we probe.
+          URL="$(echo "${{ vars.BASE_URL }}" | tr -d '[:space:]' | sed 's#/*$##')"
+          echo "Probing [$URL/api/health]"
           for i in $(seq 1 10); do
-            if curl -fsSL "$URL/api/health"; then echo; echo "Deployed: $URL"; exit 0; fi
+            code=$(curl -sSL -o /tmp/health.out -w '%{http_code}' "$URL/api/health" || true)
+            if [ "$code" = "200" ]; then cat /tmp/health.out; echo; echo "Deployed: $URL"; exit 0; fi
+            echo "attempt $i: HTTP $code"; cat /tmp/health.out 2>/dev/null | head -c 300; echo
             sleep 5
           done
           echo "healthz did not respond at $URL" >&2

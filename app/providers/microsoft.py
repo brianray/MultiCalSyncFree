@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import quote, urlencode
@@ -145,6 +146,11 @@ class MicrosoftProvider(CalendarProvider):
             "clientState": f"{channel_id}:{secret}",
         }
         r = self.request("POST", f"{GRAPH}/subscriptions", json=payload)
+        if r.status_code == 400 and "validation request timed out" in r.text.lower():
+            # Graph must get our echo within 10s; a cold Cloud Run instance can
+            # miss that. The first attempt warmed it up, so try once more.
+            time.sleep(2)
+            r = self.request("POST", f"{GRAPH}/subscriptions", json=payload)
         if r.status_code == 400 and self._is_default_calendar(calendar_id):
             # Some tenants reject the per-calendar resource for the default
             # calendar; `me/events` is equivalent for it.
