@@ -1,0 +1,42 @@
+name: Tests
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_call:   # reused by deploy.yml
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - run: pip install -r requirements-dev.txt
+      - name: Lint
+        run: ruff check app tests
+      - name: Unit tests
+        run: pytest
+      - name: Boot smoke test
+        run: |
+          python -c "from app.main import app; from starlette.testclient import TestClient; c=TestClient(app); assert c.get('/healthz').json()['ok']"
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t calsync:ci .
+      - name: Container responds
+        run: |
+          docker run -d --rm -p 8080:8080 --name calsync calsync:ci
+          for i in $(seq 1 20); do curl -fs http://localhost:8080/healthz && break; sleep 1; done
+          curl -fs http://localhost:8080/healthz
+          docker stop calsync

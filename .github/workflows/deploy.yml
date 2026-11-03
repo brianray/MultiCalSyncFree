@@ -1,0 +1,69 @@
+name: Deploy to Cloud Run
+
+# Deploys on every push to main (after tests pass) and on demand.
+# One-time setup is done by scripts/bootstrap.sh, which prints the values for
+# the repository variables and secrets used below.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write   # Workload Identity Federation: no long-lived GCP keys in GitHub
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+env:
+  SERVICE: ${{ vars.CLOUD_RUN_SERVICE || 'calsync' }}
+  REGION: ${{ vars.GCP_REGION || 'us-central1' }}
+  PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+
+jobs:
+  test:
+    uses: ./.github/workflows/test.yml
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SA }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Build and push image
+        run: |
+          IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/calsync/calsync:${GITHUB_SHA}"
+          gcloud builds submit --tag "$IMAGE" --quiet
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+
+      - name: Deploy
+        # "^|^" makes gcloud split env vars on "|" so ALLOWED_EMAILS may contain commas.
+        run: |
+          gcloud run deploy "$SERVICE" \
+            --image "$IMAGE" \
+            --region "$REGION" \
+            --platform managed \
+            --allow-unauthenticated \
+            --service-account "${{ vars.GCP_RUNTIME_SA }}" \
+            --no-cpu-throttling \
+            --min-instances 0 --max-instances 3 --concurrency 20 \
+            --set-env-vars "^|^BASE_URL=${{ vars.BASE_URL }}|STORAGE_BACKEND=gcs|GCS_BUCKET=${{ vars.GCS_BUCKET }}|GOOGLE_CLIENT_ID=${{ vars.GOOGLE_CLIENT_ID }}|MS_CLIENT_ID=${{ vars.MS_CLIENT_ID }}|MS_TENANT=${{ vars.MS_TENANT || 'common' }}|ALLOWED_EMAILS=${{ vars.ALLOWED_EMAILS }}|WINDOW_PAST_DAYS=${{ vars.WINDOW_PAST_DAYS || '30' }}|WINDOW_FUTURE_DAYS=${{ vars.WINDOW_FUTURE_DAYS || '365' }}" \
+            --set-secrets "SESSION_SECRET=calsync-session-secret:latest,TOKEN_ENCRYPTION_KEY=calsync-token-key:latest,CRON_SECRET=calsync-cron-secret:latest,GOOGLE_CLIENT_SECRET=calsync-google-client-secret:latest,MS_CLIENT_SECRET=calsync-ms-client-secret:latest" \
+            --quiet
+
+      - name: Smoke test
+        run: |
+          URL=$(gcloud run services describe "$SERVICE" --region "$REGION" --format 'value(status.url)')
+          curl -fsS "$URL/healthz"
+          echo
+          echo "Deployed: $URL"
