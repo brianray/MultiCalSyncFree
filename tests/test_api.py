@@ -23,7 +23,7 @@ def authed(client, ctx, user):
 
 
 def test_health_and_index(client):
-    assert client.get("/healthz").json()["ok"] is True
+    assert client.get("/api/health").json()["ok"] is True
     assert "MultiCalSyncFree" in client.get("/").text
     assert client.get("/static/app.js").status_code == 200
 
@@ -266,5 +266,5 @@ def test_non_canonical_host_redirects_but_webhooks_do_not(client, ctx):
     r = client.get("/auth/google/callback?code=x&state=y", headers={"host": "other.run.app"}, follow_redirects=False)
     assert r.headers["location"].endswith("/auth/google/callback?code=x&state=y")
     assert client.get("/api/me", headers={"host": "calsync-abc-uc.a.run.app"}).status_code == 200
-    assert client.get("/healthz", headers={"host": "other.run.app"}).status_code == 200
+    assert client.get("/api/health", headers={"host": "other.run.app"}).status_code == 200
     assert client.get("/webhooks/microsoft?validationToken=t", headers={"host": "other.run.app"}).text == "t"

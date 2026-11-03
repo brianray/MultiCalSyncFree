@@ -443,7 +443,7 @@ class CanonicalHostMiddleware(BaseHTTPMiddleware):
     must never be redirected).
     """
 
-    EXEMPT_PREFIXES = ("/webhooks/", "/cron/", "/healthz")
+    EXEMPT_PREFIXES = ("/webhooks/", "/cron/", "/api/health")
 
     async def dispatch(self, request: Request, call_next):
         base = get_ctx().settings.base_url
@@ -472,7 +472,7 @@ async def http_exception(request: Request, exc: HTTPException) -> Response:
 
 routes = [
     Route("/", index),
-    Route("/healthz", healthz),
+    Route("/api/health", healthz),
     Route("/auth/{provider}/start", auth_start),
     Route("/auth/{provider}/callback", auth_callback),
     Route("/auth/logout", logout, methods=["POST"]),
