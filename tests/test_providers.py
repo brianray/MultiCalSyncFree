@@ -221,6 +221,27 @@ def test_microsoft_subscription_lifecycle():
     p.unsubscribe(sid, "chan")
 
 
+def test_microsoft_subscribe_falls_back_to_me_events_for_default_calendar():
+    seen = []
+
+    def handler(req):
+        if req.method == "GET" and req.url.path == "/v1.0/me/calendar":
+            return httpx.Response(200, json={"id": "default-cal"})
+        body = json.loads(req.content)
+        seen.append(body["resource"])
+        if body["resource"].startswith("me/calendars/"):
+            return httpx.Response(400, json={"error": {"code": "InvalidRequest", "message": "Resource not supported"}})
+        return httpx.Response(201, json={"id": "sub2", "expirationDateTime": "2026-11-05T00:00:00.0000000Z"})
+
+    p = MicrosoftProvider("cid", "sec", "http://cb", tokens=fresh_tokens(), client=mock_client(handler))
+    sid, _ = p.subscribe("default-cal", "http://cb/webhooks/microsoft", "chan", "sec")
+    assert sid == "sub2" and seen == ["me/calendars/default-cal/events", "me/events"]
+    # A non-default calendar surfaces Graph's message instead of retrying.
+    with pytest.raises(ProviderError) as ei:
+        p.subscribe("other-cal", "http://cb/webhooks/microsoft", "chan", "sec")
+    assert "Resource not supported" in str(ei.value)
+
+
 def test_microsoft_auth_url_uses_tenant():
     p = MicrosoftProvider("cid", "sec", "http://cb", tenant="contoso.com")
     url = p.auth_url("st")

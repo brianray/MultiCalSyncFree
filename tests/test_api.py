@@ -247,3 +247,14 @@ def test_cron_tick(client, ctx, providers, accounts, link):
     body = r.json()
     assert body["links"][0]["created"] == 1 and body["subscriptions"]["created"] == 1
     assert ctx.repo.get_link(link.id).last_sync > time.time() - 5
+
+
+def test_non_canonical_host_redirects_but_webhooks_do_not(client, ctx):
+    ctx.settings.base_url = "https://calsync-abc-uc.a.run.app"
+    r = client.get("/api/me", headers={"host": "calsync-123.us-central1.run.app"}, follow_redirects=False)
+    assert r.status_code == 308 and r.headers["location"] == "https://calsync-abc-uc.a.run.app/api/me"
+    r = client.get("/auth/google/callback?code=x&state=y", headers={"host": "other.run.app"}, follow_redirects=False)
+    assert r.headers["location"].endswith("/auth/google/callback?code=x&state=y")
+    assert client.get("/api/me", headers={"host": "calsync-abc-uc.a.run.app"}).status_code == 200
+    assert client.get("/healthz", headers={"host": "other.run.app"}).status_code == 200
+    assert client.get("/webhooks/microsoft?validationToken=t", headers={"host": "other.run.app"}).text == "t"

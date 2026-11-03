@@ -182,4 +182,8 @@ class GoogleProvider(CalendarProvider):
     @staticmethod
     def _check(r, what: str) -> None:
         if r.status_code >= 400:
-            raise ProviderError(f"google {what} failed: HTTP {r.status_code}", r.status_code, r.text[:2000])
+            try:
+                detail = r.json().get("error", {}).get("message", "")[:300]
+            except Exception:
+                detail = r.text[:300]
+            raise ProviderError(f"google {what} failed: HTTP {r.status_code}: {detail}", r.status_code, r.text[:2000])

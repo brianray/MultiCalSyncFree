@@ -136,7 +136,7 @@ def providers() -> dict[str, FakeProvider]:
 @pytest.fixture
 def ctx(providers, tmp_path) -> AppContext:
     reset_settings()
-    settings = Settings(storage_backend="memory", error_log_path=str(tmp_path / "errors.log"), base_url="http://test")
+    settings = Settings(storage_backend="memory", error_log_path=str(tmp_path / "errors.log"), base_url="http://testserver")
     context = AppContext(settings=settings, store=MemoryStore(), provider_factory=lambda acct: providers[acct.provider])
     set_ctx(context)
     yield context

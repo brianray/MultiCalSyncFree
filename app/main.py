@@ -12,6 +12,8 @@ from itsdangerous import BadSignature, URLSafeTimedSerializer
 from starlette.applications import Starlette
 from starlette.background import BackgroundTask
 from starlette.exceptions import HTTPException
+from starlette.middleware import Middleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import FileResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response
 from starlette.routing import Mount, Route
@@ -432,6 +434,36 @@ async def cron_tick(request: Request) -> Response:
 
 # --- app -----------------------------------------------------------------------------------
 
+class CanonicalHostMiddleware(BaseHTTPMiddleware):
+    """Redirect browser traffic to BASE_URL's host.
+
+    Cloud Run serves every service on more than one hostname. Cookies are per
+    host, so a login started on one hostname and finished on another looks like
+    a missing cookie. Webhooks and cron are exempt (they are host-agnostic and
+    must never be redirected).
+    """
+
+    EXEMPT_PREFIXES = ("/webhooks/", "/cron/", "/healthz")
+
+    async def dispatch(self, request: Request, call_next):
+        base = get_ctx().settings.base_url
+        host = request.headers.get("host", "")
+        canonical = base.split("://", 1)[-1].rstrip("/")
+        if (
+            canonical
+            and host
+            and host != canonical
+            and not canonical.startswith(("localhost", "127.0.0.1"))
+            and request.method == "GET"
+            and not request.url.path.startswith(self.EXEMPT_PREFIXES)
+        ):
+            target = f"{base.rstrip('/')}{request.url.path}"
+            if request.url.query:
+                target += f"?{request.url.query}"
+            return RedirectResponse(target, status_code=308)
+        return await call_next(request)
+
+
 async def http_exception(request: Request, exc: HTTPException) -> Response:
     if request.url.path.startswith("/api/") or request.url.path.startswith("/cron"):
         return JSONResponse({"error": exc.detail}, status_code=exc.status_code)
@@ -460,4 +492,8 @@ routes = [
     Mount("/static", StaticFiles(directory=STATIC_DIR), name="static"),
 ]
 
-app = Starlette(routes=routes, exception_handlers={HTTPException: http_exception})
+app = Starlette(
+    routes=routes,
+    exception_handlers={HTTPException: http_exception},
+    middleware=[Middleware(CanonicalHostMiddleware)],
+)

@@ -137,20 +137,29 @@ class MicrosoftProvider(CalendarProvider):
         return (datetime.now(timezone.utc) + timedelta(minutes=self.SUB_MINUTES)).strftime("%Y-%m-%dT%H:%M:%S.0000000Z")
 
     def subscribe(self, calendar_id: str, callback_url: str, channel_id: str, secret: str) -> tuple[str, float]:
-        r = self.request(
-            "POST",
-            f"{GRAPH}/subscriptions",
-            json={
-                "changeType": "created,updated,deleted",
-                "notificationUrl": callback_url,
-                "resource": f"/me/calendars/{calendar_id}/events",
-                "expirationDateTime": self._expiry(),
-                "clientState": f"{channel_id}:{secret}",
-            },
-        )
+        payload = {
+            "changeType": "created,updated,deleted",
+            "notificationUrl": callback_url,
+            "resource": f"me/calendars/{calendar_id}/events",
+            "expirationDateTime": self._expiry(),
+            "clientState": f"{channel_id}:{secret}",
+        }
+        r = self.request("POST", f"{GRAPH}/subscriptions", json=payload)
+        if r.status_code == 400 and self._is_default_calendar(calendar_id):
+            # Some tenants reject the per-calendar resource for the default
+            # calendar; `me/events` is equivalent for it.
+            payload["resource"] = "me/events"
+            r = self.request("POST", f"{GRAPH}/subscriptions", json=payload)
         self._check(r, "subscriptions.create")
         body = r.json()
         return body["id"], _parse_graph_time(body["expirationDateTime"])
+
+    def _is_default_calendar(self, calendar_id: str) -> bool:
+        try:
+            r = self.request("GET", f"{GRAPH}/me/calendar", params={"$select": "id"})
+            return r.status_code == 200 and r.json().get("id") == calendar_id
+        except Exception:  # pragma: no cover - best effort
+            return False
 
     def renew(self, provider_sub_id: str, channel_id: str) -> float:
         r = self.request(
@@ -214,7 +223,18 @@ class MicrosoftProvider(CalendarProvider):
     @staticmethod
     def _check(r, what: str) -> None:
         if r.status_code >= 400:
-            raise ProviderError(f"microsoft {what} failed: HTTP {r.status_code}", r.status_code, r.text[:2000])
+            raise ProviderError(
+                f"microsoft {what} failed: HTTP {r.status_code}: {_graph_error(r)}", r.status_code, r.text[:2000]
+            )
+
+
+def _graph_error(r) -> str:
+    """Pull Graph's human-readable error out of the response, if there is one."""
+    try:
+        err = r.json().get("error", {})
+        return f"{err.get('code', '')} {err.get('message', '')}".strip()[:300] or r.text[:300]
+    except Exception:
+        return r.text[:300]
 
 
 def _graph_dt(utc_iso: str) -> str:
