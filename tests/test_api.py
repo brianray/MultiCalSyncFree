@@ -24,7 +24,7 @@ def authed(client, ctx, user):
 
 def test_health_and_index(client):
     assert client.get("/healthz").json()["ok"] is True
-    assert "CalSync" in client.get("/").text
+    assert "MultiCalSyncFree" in client.get("/").text
     assert client.get("/static/app.js").status_code == 200
 
 

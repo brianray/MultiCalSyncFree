@@ -1,4 +1,4 @@
-/* CalSync single-page UI. No framework, no build step. */
+/* MultiCalSyncFree single-page UI. No framework, no build step. */
 (() => {
   const $ = (s) => document.querySelector(s);
   const state = { me: null, calendars: {} };

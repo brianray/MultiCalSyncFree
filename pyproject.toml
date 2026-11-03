@@ -1,5 +1,5 @@
 [project]
-name = "calsync"
+name = "multicalsyncfree"
 version = "0.1.0"
 description = "Two-way calendar mirroring between Google Calendar and Microsoft 365, on Cloud Run with Cloud Storage."
 readme = "README.md"

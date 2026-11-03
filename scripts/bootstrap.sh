@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# One-time GCP setup for CalSync. Idempotent: safe to re-run.
+# One-time GCP setup for MultiCalSyncFree. Idempotent: safe to re-run.
 #
-#   PROJECT_ID=my-project GITHUB_REPO=me/calsync ./scripts/bootstrap.sh
+#   PROJECT_ID=my-project GITHUB_REPO=me/MultiCalSyncFree ./scripts/bootstrap.sh
 #
 # What it does:
 #   1. enables the APIs (Cloud Run, Cloud Build, Artifact Registry, Secret Manager,
@@ -54,7 +54,7 @@ gcloud storage buckets update "gs://$BUCKET" --versioning --quiet
 
 say "Runtime service account"
 gcloud iam service-accounts describe "$RUNTIME_SA@$PROJECT_ID.iam.gserviceaccount.com" >/dev/null 2>&1 ||
-  gcloud iam service-accounts create "$RUNTIME_SA" --display-name "CalSync runtime"
+  gcloud iam service-accounts create "$RUNTIME_SA" --display-name "MultiCalSyncFree runtime"
 RUNTIME_SA_EMAIL="$RUNTIME_SA@$PROJECT_ID.iam.gserviceaccount.com"
 gcloud storage buckets add-iam-policy-binding "gs://$BUCKET" \
   --member "serviceAccount:$RUNTIME_SA_EMAIL" --role roles/storage.objectAdmin --quiet >/dev/null
@@ -78,7 +78,7 @@ make_secret calsync-ms-client-secret "REPLACE_ME"
 
 say "Deploy service account + Workload Identity Federation for GitHub Actions"
 gcloud iam service-accounts describe "$DEPLOY_SA@$PROJECT_ID.iam.gserviceaccount.com" >/dev/null 2>&1 ||
-  gcloud iam service-accounts create "$DEPLOY_SA" --display-name "CalSync deployer"
+  gcloud iam service-accounts create "$DEPLOY_SA" --display-name "MultiCalSyncFree deployer"
 DEPLOY_SA_EMAIL="$DEPLOY_SA@$PROJECT_ID.iam.gserviceaccount.com"
 for role in roles/run.admin roles/cloudbuild.builds.editor roles/artifactregistry.writer \
             roles/storage.admin roles/iam.serviceAccountUser roles/serviceusage.serviceUsageConsumer; do
@@ -126,7 +126,7 @@ fi
 cat <<EOF
 
 ================================================================================
-CalSync is deployed at: $URL
+MultiCalSyncFree is deployed at: $URL
 
 NEXT STEPS
 

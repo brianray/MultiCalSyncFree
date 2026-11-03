@@ -1,13 +1,13 @@
-# CalSync
+# MultiCalSyncFree
 
 Two-way calendar mirroring between **Google Calendar** and **Microsoft 365 / Outlook**, running on Google Cloud with no servers to manage and no database to pay for.
 
-Sign in with either Google or Microsoft (that account becomes your primary login), attach as many accounts of either kind as you like, pick a calendar on each side, and CalSync keeps them in step. Changes arrive within seconds via push notifications; a scheduled tick every 15 minutes catches anything a webhook missed. Every failure is written to disk and to Cloud Storage and shown in the app.
+Sign in with either Google or Microsoft (that account becomes your primary login), attach as many accounts of either kind as you like, pick a calendar on each side, and MultiCalSyncFree keeps them in step. Changes arrive within seconds via push notifications; a scheduled tick every 15 minutes catches anything a webhook missed. Every failure is written to disk and to Cloud Storage and shown in the app.
 
 ```
  Google Calendar  ──watch──▶ ┌──────────────┐ ◀──change notifications── Microsoft Graph
                              │  Cloud Run   │
-   events.list/insert ◀───── │  (CalSync)   │ ─────▶ calendarView/delta, events
+   events.list/insert ◀───── │ (MultiCalSyncFree) │ ─────▶ calendarView/delta, events
                              └──────┬───────┘
                                     │ JSON objects: users, accounts (encrypted tokens),
                                     │ links, cursors, event-id maps, subscriptions, errors
@@ -35,8 +35,8 @@ Sign in with either Google or Microsoft (that account becomes your primary login
 You need `gcloud` authenticated against a project with billing enabled, and a GitHub repo containing this code.
 
 ```bash
-git clone https://github.com/<you>/calsync && cd calsync
-PROJECT_ID=my-gcp-project GITHUB_REPO=<you>/calsync ./scripts/bootstrap.sh
+git clone https://github.com/<you>/MultiCalSyncFree && cd MultiCalSyncFree
+PROJECT_ID=my-gcp-project GITHUB_REPO=<you>/MultiCalSyncFree ./scripts/bootstrap.sh
 ```
 
 The script enables the APIs, creates the bucket, service accounts, secrets, Workload Identity Federation for GitHub Actions, deploys once, and sets up the Cloud Scheduler job. It finishes by printing your service URL, the OAuth redirect URIs, and the exact GitHub variables and secrets to configure. It is idempotent; re-run it any time.
