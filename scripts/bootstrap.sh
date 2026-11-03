@@ -91,8 +91,11 @@ say "Deploy service account + Workload Identity Federation for GitHub Actions"
 gcloud iam service-accounts describe "$DEPLOY_SA@$PROJECT_ID.iam.gserviceaccount.com" >/dev/null 2>&1 ||
   gcloud iam service-accounts create "$DEPLOY_SA" --display-name "MultiCalSyncFree deployer"
 DEPLOY_SA_EMAIL="$DEPLOY_SA@$PROJECT_ID.iam.gserviceaccount.com"
+# roles/viewer lets `gcloud builds submit` stream build logs back to GitHub Actions;
+# without it the build still runs but the step exits non-zero.
 for role in roles/run.admin roles/cloudbuild.builds.editor roles/artifactregistry.writer \
-            roles/storage.admin roles/iam.serviceAccountUser roles/serviceusage.serviceUsageConsumer; do
+            roles/storage.admin roles/iam.serviceAccountUser roles/serviceusage.serviceUsageConsumer \
+            roles/viewer; do
   retry 12 gcloud projects add-iam-policy-binding "$PROJECT_ID" --member "serviceAccount:$DEPLOY_SA_EMAIL" \
     --role "$role" --quiet
 done
