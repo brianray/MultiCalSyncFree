@@ -36,6 +36,17 @@ PROJECT_NUMBER=$(gcloud projects describe "$PROJECT_ID" --format 'value(projectN
 
 say() { printf '\n\033[1;34m==> %s\033[0m\n' "$*"; }
 
+# IAM is eventually consistent: a service account can take ~10-30s to become
+# bindable after creation. Retry a command until it succeeds.
+retry() { # n cmd...
+  local n=$1; shift
+  for i in $(seq 1 "$n"); do
+    if "$@" >/dev/null 2>&1; then return 0; fi
+    [ "$i" -lt "$n" ] && { echo "  (not ready yet, retrying in 5s: $1 ${*: -1})"; sleep 5; }
+  done
+  echo "  giving up on: $*" >&2; return 1
+}
+
 say "Enabling APIs"
 gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com \
   secretmanager.googleapis.com cloudscheduler.googleapis.com storage.googleapis.com \
@@ -56,8 +67,8 @@ say "Runtime service account"
 gcloud iam service-accounts describe "$RUNTIME_SA@$PROJECT_ID.iam.gserviceaccount.com" >/dev/null 2>&1 ||
   gcloud iam service-accounts create "$RUNTIME_SA" --display-name "MultiCalSyncFree runtime"
 RUNTIME_SA_EMAIL="$RUNTIME_SA@$PROJECT_ID.iam.gserviceaccount.com"
-gcloud storage buckets add-iam-policy-binding "gs://$BUCKET" \
-  --member "serviceAccount:$RUNTIME_SA_EMAIL" --role roles/storage.objectAdmin --quiet >/dev/null
+retry 12 gcloud storage buckets add-iam-policy-binding "gs://$BUCKET" \
+  --member "serviceAccount:$RUNTIME_SA_EMAIL" --role roles/storage.objectAdmin --quiet
 
 say "Secrets"
 make_secret() { # name value
@@ -67,8 +78,8 @@ make_secret() { # name value
     printf '%s' "$2" | gcloud secrets create "$1" --data-file=- --replication-policy automatic --quiet
     echo "  $1 created"
   fi
-  gcloud secrets add-iam-policy-binding "$1" --member "serviceAccount:$RUNTIME_SA_EMAIL" \
-    --role roles/secretmanager.secretAccessor --quiet >/dev/null
+  retry 12 gcloud secrets add-iam-policy-binding "$1" --member "serviceAccount:$RUNTIME_SA_EMAIL" \
+    --role roles/secretmanager.secretAccessor --quiet
 }
 make_secret calsync-session-secret "$(openssl rand -base64 48)"
 make_secret calsync-cron-secret "$(openssl rand -hex 32)"
@@ -82,8 +93,8 @@ gcloud iam service-accounts describe "$DEPLOY_SA@$PROJECT_ID.iam.gserviceaccount
 DEPLOY_SA_EMAIL="$DEPLOY_SA@$PROJECT_ID.iam.gserviceaccount.com"
 for role in roles/run.admin roles/cloudbuild.builds.editor roles/artifactregistry.writer \
             roles/storage.admin roles/iam.serviceAccountUser roles/serviceusage.serviceUsageConsumer; do
-  gcloud projects add-iam-policy-binding "$PROJECT_ID" --member "serviceAccount:$DEPLOY_SA_EMAIL" \
-    --role "$role" --quiet >/dev/null
+  retry 12 gcloud projects add-iam-policy-binding "$PROJECT_ID" --member "serviceAccount:$DEPLOY_SA_EMAIL" \
+    --role "$role" --quiet
 done
 # Cloud Build runs as the compute SA by default; it needs to push the image.
 gcloud projects add-iam-policy-binding "$PROJECT_ID" \
@@ -99,10 +110,10 @@ gcloud iam workload-identity-pools providers describe "$PROVIDER" --location glo
     --attribute-mapping "google.subject=assertion.sub,attribute.repository=assertion.repository" \
     --attribute-condition "assertion.repository == '$GITHUB_REPO'"
 WIF_PROVIDER="projects/$PROJECT_NUMBER/locations/global/workloadIdentityPools/$POOL/providers/$PROVIDER"
-gcloud iam service-accounts add-iam-policy-binding "$DEPLOY_SA_EMAIL" \
+retry 12 gcloud iam service-accounts add-iam-policy-binding "$DEPLOY_SA_EMAIL" \
   --role roles/iam.workloadIdentityUser \
   --member "principalSet://iam.googleapis.com/projects/$PROJECT_NUMBER/locations/global/workloadIdentityPools/$POOL/attribute.repository/$GITHUB_REPO" \
-  --quiet >/dev/null
+  --quiet
 
 say "First deploy (so the service URL exists for the OAuth redirect URIs)"
 gcloud run deploy "$SERVICE" --source . --region "$REGION" --platform managed --allow-unauthenticated \
