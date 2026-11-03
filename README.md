@@ -1,6 +1,14 @@
 # MultiCalSyncFree
 <img width="2400" height="1260" alt="MultiCalSyncFree-linkedin" src="https://github.com/user-attachments/assets/dc65bd48-7d21-40b7-b098-d585166dcf0d" />
 
+[![Tests](https://github.com/brianray/MultiCalSyncFree/actions/workflows/test.yml/badge.svg)](https://github.com/brianray/MultiCalSyncFree/actions/workflows/test.yml)
+[![Deploy](https://github.com/brianray/MultiCalSyncFree/actions/workflows/deploy.yml/badge.svg)](https://github.com/brianray/MultiCalSyncFree/actions/workflows/deploy.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](pyproject.toml)
+[![Runs on Cloud Run](https://img.shields.io/badge/runs%20on-Google%20Cloud%20Run-4285F4?logo=googlecloud&logoColor=white)](https://cloud.google.com/run)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/brianray/MultiCalSyncFree/pulls)
+
 
 Two-way (or n-way) calendar mirroring between **Google Calendar** and **Microsoft 365 / Outlook**, running on Google Cloud with no servers to manage and no database to pay for.
 
