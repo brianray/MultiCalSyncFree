@@ -67,7 +67,7 @@ jobs:
         run: |
           URL="${{ vars.BASE_URL }}"
           for i in $(seq 1 10); do
-            if curl -fsSL "$URL/healthz"; then echo; echo "Deployed: $URL"; exit 0; fi
+            if curl -fsSL "$URL/api/health"; then echo; echo "Deployed: $URL"; exit 0; fi
             sleep 5
           done
           echo "healthz did not respond at $URL" >&2

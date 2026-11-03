@@ -25,7 +25,7 @@ jobs:
         run: pytest
       - name: Boot smoke test
         run: |
-          python -c "from app.main import app; from starlette.testclient import TestClient; c=TestClient(app); assert c.get('/healthz').json()['ok']"
+          python -c "from app.main import app; from starlette.testclient import TestClient; c=TestClient(app); assert c.get('/api/health').json()['ok']"
 
   docker:
     runs-on: ubuntu-latest
@@ -37,6 +37,6 @@ jobs:
       - name: Container responds
         run: |
           docker run -d --rm -p 8080:8080 --name calsync calsync:ci
-          for i in $(seq 1 20); do curl -fs http://localhost:8080/healthz && break; sleep 1; done
-          curl -fs http://localhost:8080/healthz
+          for i in $(seq 1 20); do curl -fs http://localhost:8080/api/health && break; sleep 1; done
+          curl -fs http://localhost:8080/api/health
           docker stop calsync
