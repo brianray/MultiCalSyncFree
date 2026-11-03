@@ -83,9 +83,52 @@ def test_oauth_callback_creates_user_and_attaches_second_account(client, ctx, pr
     acct = ctx.repo.get_account(me["accounts"][0]["id"])
     assert acct.tokens_enc and "refresh_token" not in acct.tokens_enc  # encrypted at rest
 
-    # Bad state is rejected; provider error is logged.
-    assert client.get("/auth/google/callback?code=ok&state=wrong").status_code == 400
+    # Bad / missing state is rejected with a readable explanation.
+    client.get("/auth/google/start", follow_redirects=False)  # a pending flow exists...
+    r = client.get("/auth/google/callback?code=ok&state=wrong")  # ...but not this one
+    assert r.status_code == 400 and "mismatch" in r.text and "/auth/google/start" in r.text
     assert client.get("/auth/google/callback?error=access_denied").status_code == 400
+    client.cookies.clear()
+    r = client.get("/auth/google/callback?code=ok&state=x")
+    assert r.status_code == 400 and "missing" in r.text
+
+
+def test_oauth_state_cookies_are_per_provider(client, ctx, monkeypatch):
+    """Starting a Microsoft sign-in must not invalidate an in-flight Google one."""
+    ctx.settings.google_client_id = "gid"
+    ctx.settings.ms_client_id = "mid"
+
+    class FakeOAuth:
+        def __init__(self, name): self.name, self.client_id = name, "x"
+        def auth_url(self, state): return f"https://idp/{self.name}?state={state}"
+        def exchange_code(self, code): return OAuthTokens(access_token="a", refresh_token="r", expires_in=100)
+        def user_info(self): return {"email": f"{self.name}@example.com", "name": self.name}
+
+    monkeypatch.setattr(ctx, "new_provider", lambda name, tokens=None, on_tokens=None: FakeOAuth(name))
+    g_state = client.get("/auth/google/start", follow_redirects=False).headers["location"].split("state=")[1]
+    client.get("/auth/microsoft/start", follow_redirects=False)  # overlapping flow
+    r = client.get(f"/auth/google/callback?code=ok&state={g_state}", follow_redirects=False)
+    assert r.status_code == 302
+
+
+def test_oauth_prefetch_does_not_break_login(client, ctx, monkeypatch):
+    """A browser may prefetch /start on hover; the nonce it got must still be accepted."""
+    ctx.settings.google_client_id = "gid"
+
+    class FakeOAuth:
+        client_id = "x"
+        def auth_url(self, state): return f"https://idp?state={state}"
+        def exchange_code(self, code): return OAuthTokens(access_token="a", refresh_token="r", expires_in=100)
+        def user_info(self): return {"email": "me@example.com", "name": ""}
+
+    monkeypatch.setattr(ctx, "new_provider", lambda *a, **k: FakeOAuth())
+    first = client.get("/auth/google/start", follow_redirects=False).headers["location"].split("state=")[1]
+    for _ in range(3):  # later clicks / prefetches
+        client.get("/auth/google/start", follow_redirects=False)
+    r = client.get(f"/auth/google/callback?code=ok&state={first}", follow_redirects=False)
+    assert r.status_code == 302
+    # Still rejects a state no flow in this browser produced.
+    assert client.get("/auth/google/callback?code=ok&state=forged").status_code == 400
 
 
 def test_allow_list_blocks_first_login(client, ctx, monkeypatch):

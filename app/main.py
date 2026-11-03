@@ -29,7 +29,8 @@ logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"))
 
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 SESSION_COOKIE = "cs_session"
-STATE_COOKIE = "cs_oauth"
+STATE_COOKIE = "cs_oauth"  # suffixed with the provider name so flows cannot clobber each other
+STATE_MAX_AGE = 15 * 60
 SESSION_MAX_AGE = 30 * 24 * 3600
 
 
@@ -114,25 +115,58 @@ async def auth_start(request: Request) -> Response:
     if not provider.client_id:
         raise HTTPException(500, f"{provider_name} OAuth client is not configured on this server")
     nonce = secrets.token_urlsafe(16)
+    # Browsers prefetch links on hover, so /start can run more than once per click.
+    # Keep the last few nonces so whichever one the IdP echoes back still validates.
+    nonces = _pending_nonces(request, ctx, provider_name)[-4:] + [nonce]
     resp = RedirectResponse(provider.auth_url(nonce), status_code=302)
+    resp.headers["Cache-Control"] = "no-store"
     resp.set_cookie(
-        STATE_COOKIE, _serializer(ctx).dumps({"n": nonce, "p": provider_name}), max_age=600, httponly=True,
-        samesite="lax", secure=_secure(ctx),
+        f"{STATE_COOKIE}_{provider_name}", _serializer(ctx).dumps({"n": nonces}),
+        max_age=STATE_MAX_AGE, httponly=True, samesite="lax", secure=_secure(ctx), path="/auth/",
     )
     return resp
+
+
+def _pending_nonces(request: Request, ctx: AppContext, provider_name: str) -> list[str]:
+    raw = request.cookies.get(f"{STATE_COOKIE}_{provider_name}", "")
+    if not raw:
+        return []
+    try:
+        data = _serializer(ctx).loads(raw, max_age=STATE_MAX_AGE)
+    except BadSignature:
+        return []
+    n = data.get("n", [])
+    return list(n) if isinstance(n, list) else [n]
+
+
+def _login_error(message: str, provider_name: str, status: int = 400) -> Response:
+    return PlainTextResponse(
+        f"{message}\n\nStart again from the app and complete the sign-in in a single tab:\n"
+        f"/auth/{provider_name}/start",
+        status_code=status,
+    )
 
 
 async def auth_callback(request: Request) -> Response:
     ctx = get_ctx()
     provider_name = request.path_params["provider"]
+    if provider_name not in ("google", "microsoft"):
+        raise HTTPException(404)
     if "error" in request.query_params:
-        return PlainTextResponse(f"Login failed: {request.query_params.get('error_description') or request.query_params['error']}", 400)
+        return _login_error(
+            f"Login failed: {request.query_params.get('error_description') or request.query_params['error']}", provider_name
+        )
+    raw = request.cookies.get(f"{STATE_COOKIE}_{provider_name}", "")
+    if not raw:
+        return _login_error("Login state cookie missing (sign-in was started in another browser or the cookie was "
+                            "blocked).", provider_name)
     try:
-        st = _serializer(ctx).loads(request.cookies.get(STATE_COOKIE, ""), max_age=600)
+        _serializer(ctx).loads(raw, max_age=STATE_MAX_AGE)
     except BadSignature:
-        raise HTTPException(400, "login state expired; try again")
-    if st.get("n") != request.query_params.get("state") or st.get("p") != provider_name:
-        raise HTTPException(400, "state mismatch")
+        return _login_error("Login state expired (sign-in took longer than 15 minutes).", provider_name)
+    if request.query_params.get("state") not in _pending_nonces(request, ctx, provider_name):
+        return _login_error("Login state mismatch (this sign-in does not match one started in this browser).",
+                            provider_name)
     code = request.query_params.get("code", "")
     provider = ctx.new_provider(provider_name)
     try:
@@ -161,7 +195,7 @@ async def auth_callback(request: Request) -> Response:
     ctx.repo.save_user(user)
     resp = RedirectResponse("/", status_code=302)
     _set_session(resp, ctx, user)
-    resp.delete_cookie(STATE_COOKIE)
+    resp.delete_cookie(f"{STATE_COOKIE}_{provider_name}", path="/auth/")
     return resp
 
 
