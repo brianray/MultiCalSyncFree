@@ -62,8 +62,13 @@ jobs:
             --quiet
 
       - name: Smoke test
+        # Cloud Run reports one of the service's hostnames; the app redirects every
+        # hostname to BASE_URL, so probe BASE_URL and follow redirects.
         run: |
-          URL=$(gcloud run services describe "$SERVICE" --region "$REGION" --format 'value(status.url)')
-          curl -fsS "$URL/healthz"
-          echo
-          echo "Deployed: $URL"
+          URL="${{ vars.BASE_URL }}"
+          for i in $(seq 1 10); do
+            if curl -fsSL "$URL/healthz"; then echo; echo "Deployed: $URL"; exit 0; fi
+            sleep 5
+          done
+          echo "healthz did not respond at $URL" >&2
+          exit 1
