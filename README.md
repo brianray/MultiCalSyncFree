@@ -4,6 +4,9 @@
 
 Two-way calendar mirroring between **Google Calendar** and **Microsoft 365 / Outlook**, running on Google Cloud with no servers to manage and no database to pay for.
 
+<img width="760" height="820" alt="Screenshot 2026-11-02 at 10 00 46 PM" src="https://github.com/user-attachments/assets/1b98433a-40b2-4a32-9f06-154d3679eb58" />
+
+
 Sign in with either Google or Microsoft (that account becomes your primary login), attach as many accounts of either kind as you like, pick a calendar on each side, and MultiCalSyncFree keeps them in step. Changes arrive within seconds via push notifications; a scheduled tick every 15 minutes catches anything a webhook missed. Every failure is written to disk and to Cloud Storage and shown in the app.
 
 ```
@@ -17,6 +20,8 @@ Sign in with either Google or Microsoft (that account becomes your primary login
                              │ Cloud Storage│        │ Cloud Scheduler  │──▶ /cron/tick every 15 min
                              └──────────────┘        └──────────────────┘
 ```
+
+
 
 ## Features
 
